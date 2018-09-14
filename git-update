@@ -1,0 +1,139 @@
+#!/usr/bin/env node
+
+const program = require('commander');
+const version = require(__dirname + '/package.json').version
+const cp = require('child_process');
+const branchs = [];
+let currbranch = null, currpath = process.cwd(), extcmd = '';
+
+program.version(version);
+program.on('--help', function(){
+	console.log('  实例:');
+	console.log('');
+	console.log('	git-update all');
+	console.log('	git-update ./path');
+	console.log('	git-update branchname');
+	console.log('');
+});
+program.command('all')
+	.description('更新所有分支的代码')
+	.action(all);
+program.command('*')
+	.description('更新指定目录下的所有分支或更新指定分支代码')
+	.action(branch);
+
+program.parse(process.argv);
+
+function branch(b) {
+	if (ispath(b)) {
+		currpath = b;
+		extcmd = `cd ${currpath} && `;
+		all();
+	} else {
+		info('当前目录：' + currpath);
+		info('开始更新 ' + b + ' 分支');
+		gitbranch().then(r => {
+			gitcheckout(b).then(updatebranch).then(r2 => {
+				if (currbranch) gitcheckout(currbranch);
+				info(currpath + ' 更新完成！\n');
+			});
+		});
+	}
+}
+
+function ispath(b) {
+	if (b === '.') return true;
+	if (b === '..') return true;
+	if (b.indexOf('/') !== -1) return true;
+	if (b.indexOf('\\') !== -1) return true;
+	return false;
+}
+
+function all(opts) {
+	info('当前目录：' + currpath);
+	info('开始更新所有分支');
+	gitbranch().then(updatebranch).then(updateothers).then(r => {
+		if (currbranch) gitcheckout(currbranch);
+		info(currpath + ' 更新完成！\n');
+	});
+}
+function updateothers() {
+	return new Promise((resolve, reject) => {
+		const next = i => {
+			if (i >= branchs.length) return resolve(true);
+			const branch = branchs[i];
+			gitcheckout(branch).then(r => {
+				if (!r) {
+					error(`${branch} 分支切换失败！`);
+					next(++i);
+				} else updatebranch(true).then(r2 => { next(++i); })
+			});
+		};
+		next(0);
+	});
+}
+function gitcheckout(branch) {
+	return exec(extcmd + 'git checkout ' + branch).then(r => {
+		if (r.indexOf('Your branch is up to') === 0) return true;
+		if (r.indexOf('Switched to branch') === 0) return true;
+		if (r.indexOf('Your branch is behind') === 0) return true;
+		console.log(r);
+		return false;
+	});
+}
+function updatebranch(r) {
+	if (!r) return false;
+	return gitstatus().then(gitpull);
+}
+function gitpull(r) {
+	if (r.count === 0) return warn(`${r.branch} 分支无需更新！`);
+	return exec(extcmd + 'git pull origin ' + r.branch).then(r2 => {
+		const o = r2.match(/Updating (.*)/i);
+		if (o) info(`${r.branch} 更新成功：${o[1]}，${r.count} 次提交`);
+		else error(`${r.branch} 更新失败：${r2}`);
+		return true;
+	});
+}
+function gitstatus() {
+	return exec(extcmd + 'git status').then(r => {
+		const branch = r.match(/On branch (.*)/i)[1];
+		const o = r.match(/Your branch is behind 'origin\/(.*)' by (\d+) commit/i);
+		return { branch: branch, count: o ? o[2] : 0 };
+	});
+}
+function gitbranch() {
+	return exec(extcmd + 'git branch').then(r => {
+		if (r.indexOf('Not a git repository') !== -1) {
+			error('不是一个git项目');
+			return false;
+		}
+		const list = r.split('\n');
+		for (let i = 0, len = list.length; i < len; i++) {
+			const o = list[i];
+			if (o.indexOf('(') === 2 || o === '') continue;
+			if (o.indexOf('*') === 0) currbranch = o.substring(2);
+			else branchs.push(o.substring(2));
+		}
+		return true;
+	});
+}
+function exec(cmd, option) {
+	return new Promise(function(resolve, reject) {
+		cp.exec(cmd, option, function(err, stdout, stderr) {
+			resolve(err ? err.message : stdout);
+		});
+	});
+}
+
+function info(msg) {
+	console.log('> ' + msg);
+	return false;
+}
+function warn(msg) {
+	console.warn('> ' + msg);
+	return false;
+}
+function error(msg) {
+	console.error('错误：' + msg);
+	return false;
+}

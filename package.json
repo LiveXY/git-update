@@ -1,0 +1,12 @@
+{
+  "name": "git-update",
+  "description": "git-update",
+  "version": "0.0.1",
+  "private": true,
+  "bin": {
+    "git-update": "git-update"
+  },
+  "dependencies": {
+    "commander": "*"
+  }
+}
