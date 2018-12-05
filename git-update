@@ -32,7 +32,7 @@ function branch(b) {
 	} else {
 		info('当前目录：' + currpath);
 		info('开始更新 ' + b + ' 分支');
-		gitbranch().then(r => {
+		gitfetch().then(gitbranch).then(r => {
 			gitcheckout(b).then(updatebranch).then(r2 => {
 				if (currbranch) gitcheckout(currbranch);
 				info(currpath + ' 更新完成！\n');
@@ -52,7 +52,7 @@ function ispath(b) {
 function all(opts) {
 	info('当前目录：' + currpath);
 	info('开始更新所有分支');
-	gitbranch().then(updatebranch).then(updateothers).then(r => {
+	gitfetch().then(gitbranch).then(updatebranch).then(updateothers).then(r => {
 		if (currbranch) gitcheckout(currbranch);
 		info(currpath + ' 更新完成！\n');
 	});
@@ -62,9 +62,9 @@ function updateothers() {
 		const next = i => {
 			if (i >= branchs.length) return resolve(true);
 			const branch = branchs[i];
-			gitcheckout(branch).then(r => {
+			gitcheckout(branch).then((r, e) => {
 				if (!r) {
-					error(`${branch} 分支切换失败！`);
+					error(`${branch} 分支切换失败！${e.message}`);
 					next(++i);
 				} else updatebranch(true).then(r2 => { next(++i); })
 			});
@@ -101,6 +101,12 @@ function gitstatus() {
 		return { branch: branch, count: o ? o[2] : 0 };
 	});
 }
+function gitfetch() {
+	return exec(extcmd + 'git fetch').then(r => {
+		info(`拉取完成！`);
+		return true;
+	});
+}
 function gitbranch() {
 	return exec(extcmd + 'git branch').then(r => {
 		if (r.indexOf('Not a git repository') !== -1) {
@@ -118,6 +124,8 @@ function gitbranch() {
 	});
 }
 function exec(cmd, option) {
+	if (!option) option = {};
+	if (!option.maxBuffer) option.maxBuffer = 5000 * 1024;
 	return new Promise(function(resolve, reject) {
 		cp.exec(cmd, option, function(err, stdout, stderr) {
 			resolve(err ? err.message : stdout);
