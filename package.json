@@ -7,6 +7,7 @@
     "git-update": "git-update"
   },
   "dependencies": {
-    "commander": "*"
+    "commander": "*",
+    "colors": "*"
   }
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const program = require('commander');
+const colors = require('colors/safe');
 const version = require(__dirname + '/package.json').version
 const cp = require('child_process');
 const branchs = [];
@@ -134,14 +135,14 @@ function exec(cmd, option) {
 }
 
 function info(msg) {
-	console.log('> ' + msg);
+	console.log(colors.green('> ' + msg));
 	return false;
 }
 function warn(msg) {
-	console.warn('> ' + msg);
+	console.warn(colors.yellow('> ' + msg));
 	return false;
 }
 function error(msg) {
-	console.error('错误：' + msg);
+	console.error(colors.red('错误：' + msg));
 	return false;
 }
