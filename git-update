@@ -65,7 +65,7 @@ function updateothers() {
 			const branch = branchs[i];
 			gitcheckout(branch).then((r, e) => {
 				if (!r) {
-					error(`${branch} 分支切换失败！${e.message}`);
+					error(`${branch} 分支切换失败！`, e);
 					next(++i);
 				} else updatebranch(true).then(r2 => { next(++i); })
 			});
